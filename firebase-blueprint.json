@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "Registration": {
+      "title": "Registration",
+      "description": "Student course registration and payment info",
+      "type": "object",
+      "properties": {
+        "studentName": { "type": "string", "description": "Full name of the student" },
+        "email": { "type": "string", "format": "email", "description": "Email address" },
+        "phone": { "type": "string", "description": "Phone number" },
+        "course": { "type": "string", "description": "Selected course track" },
+        "college": { "type": "string", "description": "Student's college/university" },
+        "discovery": { "type": "string", "description": "How they found us" },
+        "feePaid": { "type": "boolean", "description": "Whether payment is verified" },
+        "paymentProof": { "type": "string", "description": "Payment screenshot data" },
+        "status": { "type": "string", "enum": ["pending", "completed"], "description": "Enrollment status" },
+        "bookedSlotId": { "type": "string", "description": "ID of the selected orientation slot" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["studentName", "email", "phone", "course", "college", "discovery"]
+    },
+    "Slot": {
+      "title": "Slot",
+      "description": "Orientation session slots",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date", "description": "Date of the slot" },
+        "time": { "type": "string", "description": "Time of the slot" },
+        "capacity": { "type": "integer", "description": "Max students" },
+        "filled": { "type": "integer", "description": "Current students booked" }
+      },
+      "required": ["date", "time", "capacity", "filled"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Administrative users",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email", "description": "Admin email" }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "/registrations/{regId}": {
+      "schema": { "$ref": "#/entities/Registration" },
+      "description": "Student registration documents"
+    },
+    "/slots/{slotId}": {
+      "schema": { "$ref": "#/entities/Slot" },
+      "description": "Available orientation slots"
+    },
+    "/admins/{uid}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Global admins"
+    }
+  }
+}

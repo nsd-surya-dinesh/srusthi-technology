@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Collections ---
+
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    match /registrations/{regId} {
+      function isValidRegistration(data) {
+        return data.studentName is string && data.studentName.size() <= 100 &&
+               data.email is string && data.email.size() <= 100 &&
+               data.phone is string && data.phone.size() <= 20 &&
+               data.course is string && data.course.size() <= 100 &&
+               data.college is string && data.college.size() <= 100 &&
+               data.discovery is string && data.discovery.size() <= 100 &&
+               data.feePaid is bool &&
+               data.status in ['pending', 'completed'];
+      }
+
+      // Public registration
+      allow create: if isValidId(regId) && 
+                       isValidRegistration(incoming()) &&
+                       incoming().feePaid == false &&
+                       incoming().status == 'pending' &&
+                       incoming().createdAt == request.time &&
+                       incoming().keys().hasAll(['studentName', 'email', 'phone', 'course', 'college', 'discovery', 'feePaid', 'status', 'createdAt']) &&
+                       incoming().keys().size() == 9;
+
+      // Allow get for the student to continue their flow (high entropy ID)
+      allow get: if isValidId(regId);
+      
+      // Admin only list
+      allow list: if isAdmin();
+
+      // Updates
+      allow update: if isValidId(regId) && (
+        isAdmin() ||
+        (
+          // Action: Upload Payment Proof
+          (incoming().diff(existing()).affectedKeys().hasOnly(['feePaid', 'paymentProof', 'updatedAt']) &&
+           incoming().feePaid == true &&
+           incoming().paymentProof is string &&
+           incoming().paymentProof.size() <= 1500000 && // ~1.5MB for Base64
+           incoming().updatedAt == request.time) ||
+          
+          // Action: Book Slot
+          (incoming().diff(existing()).affectedKeys().hasOnly(['bookedSlotId', 'status', 'updatedAt']) &&
+           incoming().bookedSlotId is string &&
+           incoming().status == 'completed' &&
+           incoming().updatedAt == request.time)
+        )
+      );
+
+      allow delete: if isAdmin();
+    }
+
+    match /slots/{slotId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /admins/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+  }
+}
